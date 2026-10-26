@@ -273,18 +273,11 @@ def check_authorization_refusal_fails_without_retrying(tmp_path: Path) -> None:
     assert output == {}
 
 
-def check_truncated_digest_is_rejected(tmp_path: Path) -> None:
-    stub = "echo '\"sha256:abc123\"'"
-    result, output = _run_hash(tmp_path, "nvcr.io/example/isaac-sim", "latest-release-6-2", stub)
-    assert result.returncode == 1
-    assert output == {}
-
-
-def check_trailing_output_after_a_digest_is_rejected(tmp_path: Path) -> None:
-    stub = f"echo '\"{_DIGEST} unexpected\"'"
-    result, output = _run_hash(tmp_path, "nvcr.io/example/isaac-sim", "latest-release-6-2", stub)
-    assert result.returncode == 1
-    assert output == {}
+def check_invalid_resolved_digests_are_rejected(tmp_path: Path) -> None:
+    for digest in ("sha256:abc123", f"{_DIGEST} unexpected"):
+        result, output = _run_hash(tmp_path, "nvcr.io/example/isaac-sim", "latest-release-6-2", f"echo '\"{digest}\"'")
+        assert result.returncode == 1, digest
+        assert output == {}, digest
 
 
 def check_successful_read_ignores_stderr_noise(tmp_path: Path) -> None:
@@ -317,8 +310,7 @@ def check_registry(tmp_path: Path, subtests) -> None:
         check_digest_pinned_tag_skips_the_network,
         check_malformed_digest_pin_fails,
         check_authorization_refusal_fails_without_retrying,
-        check_truncated_digest_is_rejected,
-        check_trailing_output_after_a_digest_is_rejected,
+        check_invalid_resolved_digests_are_rejected,
         check_successful_read_ignores_stderr_noise,
         check_deps_hash_ignores_first_party_version_bumps,
     ):

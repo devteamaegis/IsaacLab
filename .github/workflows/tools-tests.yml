@@ -46,7 +46,7 @@ jobs:
           # Use this workflow's dependency list as the cache key.
           cache-dependency-path: .github/workflows/tools-tests.yml
 
-      # These CPU tests run without an Isaac Sim installation.
+      # These tests run without Isaac Sim; flaky and pytest-xdist enable retry and parallel crash tests.
       - name: Install test dependencies
         run: bash "$GITHUB_WORKSPACE/.github/actions/_lib/with-python-package-retries.sh" python3 -m pip install pytest pytest-xdist junitparser flaky pyyaml
 
@@ -54,7 +54,7 @@ jobs:
         env:
           # The tests import the modules under test (crash_journal) directly.
           PYTHONPATH: tools
-        # Collect the listed CPU tests without loading the simulator test orchestrator.
+        # Explicit files avoid tests that need Isaac Sim; --noconftest prevents the full-suite orchestrator from running.
         run: python3 -m pytest tools/test_crash_journal.py tools/test_file_scheduler.py
           .github/actions/_lib/test_performance_workflow.py -v --noconftest
 

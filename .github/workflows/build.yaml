@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Any label starts a run because GitHub cannot filter label names at trigger time.
+# Unactivated updates fail on a CPU runner because skipped required jobs count as successful.
 
 name: Docker + Tests
 

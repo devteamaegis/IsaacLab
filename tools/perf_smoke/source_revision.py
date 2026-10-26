@@ -55,7 +55,9 @@ def check_checkout(root: Path, expected_commit: str | None = None) -> str:
 
 
 def prepare_manifest(root: Path, expected_commit: str | None = None) -> dict:
-    """Record the tracked Python paths from the selected, clean checkout."""
+    """Record the selected commit and repository-relative Python paths.
+    `files` lists paths. `namespaces` maps installed package names to their source directories.
+    """
     commit = check_checkout(root, expected_commit)
     files = sorted(
         path
@@ -79,7 +81,7 @@ def prepare_manifest(root: Path, expected_commit: str | None = None) -> dict:
     }
 
 
-def _expected_paths(name: str, namespaces: dict) -> list[str]:
+def _expected_paths(name: str, namespaces: dict[str, list[str]]) -> list[str]:
     namespace, _, suffix = name.partition(".")
     paths = []
     for prefix in namespaces.get(namespace, []):

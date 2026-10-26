@@ -74,7 +74,7 @@ const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
     assert.deepEqual(
       [evaluate(input.runner), evaluate(input.curobo), evaluate(input.stop.if), evaluate(input.cancel)],
       [activated ? ['self-hosted', 'gpu'] : ['ubuntu-latest'],
-       activated && eventName !== 'push', !activated, expectedCancel],
+       activated, !activated, expectedCancel],
       name);
   }
 })();

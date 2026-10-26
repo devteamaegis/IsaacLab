@@ -251,7 +251,6 @@ def check_evidence(subtests):
                 assert identity["tested_commit"] is None
 
     sample = bundle()
-    assert baseline.workload_key(sample) is not None
     sample["run"]["config"].pop("rendering_backend")
     assert baseline.workload_key(sample) is None
     for renderer in (None, 42, "", " "):

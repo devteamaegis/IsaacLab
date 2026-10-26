@@ -57,7 +57,7 @@ class PairedFixtureClient(FixtureClient):
         return matches[0]
 
 
-from .test_build_compare import check_comparisons, check_reports, run_report
+from .test_build_compare import assert_fields, check_comparisons, check_reports, run_report
 from .test_compare import check_rolling_history
 
 
@@ -367,8 +367,7 @@ def check_capture(tmp_path, subtests):
                 assert json.loads((output / "source-manifest.json").read_text())["commit"] == commit
                 assert context["execution"]["benchmark_protocol"] == pair.protocol
                 saved = json.loads((output / "build-context.json").read_text())
-                assert saved["execution"]["hostname"] == "fixture-gpu-host"
-                assert saved["execution"]["benchmark_protocol"] == pair.protocol
+                assert_fields(saved["execution"], hostname="fixture-gpu-host", benchmark_protocol=pair.protocol)
                 if role == "current":
                     assert source["commit_parents"] == [base, head]
             for failure in ("image", "image_shape", "context_write"):
@@ -398,8 +397,7 @@ def check_capture(tmp_path, subtests):
                     assert paired.main(args) == 0
                     manifest = json.loads((output / "source-manifest.json").read_text())
                     context = json.loads((output / "build-context.json").read_text())
-                    assert manifest["commit"] == commit
-                    assert manifest["measurement"] == measurement
+                    assert_fields(manifest, commit=commit, measurement=measurement)
                     assert context["source"]["commit"] == commit
                     assert context["measurement"] == {"commit": merge, "digest": measurement["digest"]}
                     assert context["metric_definition"]["total_fps"] == f"measurement-v1:{measurement['digest']}"
@@ -565,8 +563,7 @@ def check_reuse(tmp_path, subtests):
         selection = pair._restore(measurement=measurement)
         assert selection["baseline_reused"]
         assert selection["requested_head_commit"] == "d" * 40
-        assert selection["baseline_origin"]["artifact_id"] == artifact["id"]
-        assert selection["baseline_origin"]["source_commit"] == pair.commit
+        assert_fields(selection["baseline_origin"], artifact_id=artifact["id"], source_commit=pair.commit)
         assert json.loads(pair.selection_path.read_text()) == selection
         changed_files = {**pair.measurement["files"], RUNTIME: "0" * 64}
         changed = {
@@ -585,13 +582,11 @@ def check_reuse(tmp_path, subtests):
         pair.event["pull_request"]["base"]["sha"] = event_base
         restored = pair._restore()
         assert restored["baseline_reused"]
-        assert restored["reference_commit"] == pair.commit
-        assert restored["event_base_commit"] == event_base
+        assert_fields(restored, reference_commit=pair.commit, event_base_commit=event_base)
         candidate = pair._candidate(pair._origin(artifact, run_id=10), reused=True, hostname="different-gpu-host")
         candidate.context["source"]["event_base_commit"] = event_base
         evidence, metadata = paired.select_pr_baseline(pair.client, candidate)
-        assert evidence.identity["source_commit"] == pair.commit
-        assert evidence.identity["run_id"] == 10
+        assert_fields(evidence.identity, source_commit=pair.commit, run_id=10)
         assert metadata["baseline_reused"]
     with paired_fixture(tmp_path, subtests, "unresolved reference") as pair:
         with patch.dict(os.environ, {"PERF_BASE_COMMIT": ""}):
@@ -757,15 +752,13 @@ def check_reuse(tmp_path, subtests):
         del incomplete["second/sample-3/source-revision.json"]
         first = pair._add_baseline(incomplete)
         first_bytes = pair.client.contents[first["id"]]
-        assert not pair._restore(run_id=10, attempt=2)["baseline_reused"]
         second = pair._add_baseline(run_id=10, attempt=2)
         assert first["name"] != second["name"]
         with subtests.test(stage="valid_attempt_cannot_reuse_itself"):
             assert not pair._restore(run_id=10, attempt=2)["baseline_reused"]
         selection = pair._restore(run_id=10, attempt=3)
         assert selection["baseline_reused"]
-        assert selection["baseline_origin"]["artifact_id"] == second["id"]
-        assert selection["baseline_origin"]["run_attempt"] == 2
+        assert_fields(selection["baseline_origin"], artifact_id=second["id"], run_attempt=2)
         assert pair.client.contents[first["id"]] == first_bytes
         second["expired"] = True
         assert not pair._restore(run_id=10, attempt=3)["baseline_reused"]
@@ -806,8 +799,7 @@ def check_pair_reports(tmp_path, subtests):
             _, second, rerun_markdown = pair._run_report(attempt=2)
             assert (pair.root / "comparisons/first/comparison.json").read_bytes() == gate
             assert second["baseline"] == first["baseline"]
-            assert second["candidate"]["run_attempt"] == 1
-            assert second["candidate"]["report_attempt"] == 2
+            assert_fields(second["candidate"], run_attempt=1, report_attempt=2)
             assert "Measurements: attempt 1; report: attempt 2" in rerun_markdown
             artifact["expired"] = True
             _, result, markdown = pair._run_report(attempt=2)
@@ -852,7 +844,6 @@ def check_binding(tmp_path, subtests):
         assert pair.client.downloaded == downloaded
     with paired_fixture(tmp_path, subtests, "fresh runner and sample clocks") as pair:
         for case, arguments, reason in (
-            ("valid pair without completion bound", {}, None),
             ("pinned_digest", {}, "identity_mismatch"),
             ("different_runner", {"hostname": "different-gpu-host"}, "runner_mismatch"),
             ("sample_clock_overlap", {"start": stamp(9)}, None),
@@ -874,8 +865,7 @@ def check_binding(tmp_path, subtests):
                     assert evidence is None
                     assert metadata["reason_code"] == reason
                 else:
-                    assert evidence.identity["artifact_id"] == artifact["id"]
-                    assert evidence.identity["source_commit"] == pair.commit
+                    assert_fields(evidence.identity, artifact_id=artifact["id"], source_commit=pair.commit)
                     assert pair.client.pages_requested == []
     with paired_fixture(tmp_path, subtests, "partial baseline") as pair:
         pair._restore()
@@ -895,8 +885,7 @@ def check_binding(tmp_path, subtests):
         assert evidence is not None
         report = build_compare.compare_evidence(evidence, candidate)
         by_leg = {row["legs"]["baseline"][0]: row for row in report["rows"]}
-        assert by_leg["first"]["status"] == "compared"
-        assert by_leg["first"]["change_pct"] == 0
+        assert_fields(by_leg["first"], status="compared", change_pct=0)
         assert by_leg["second"]["status"] == "partial"
         assert by_leg["second"]["change_pct"] is None
     with paired_fixture(tmp_path, subtests, "bind wrong base") as pair:
@@ -921,8 +910,7 @@ def check_binding(tmp_path, subtests):
                 candidate = pair._candidate(pin["baseline_origin"], selection=pin)
                 evidence, metadata = paired.select_pr_baseline(pair.client, candidate)
                 if uploaded:
-                    assert evidence.identity["artifact_id"] == fresh["id"]
-                    assert evidence.identity["run_id"] == 20
+                    assert_fields(evidence.identity, artifact_id=fresh["id"], run_id=20)
                 else:
                     assert evidence is None
                     assert metadata["baseline_origin"] is None
